@@ -38,17 +38,41 @@ def main():
     'pixor_size': 64,  # size of the pixor labels
     'pixor': False,  # whether to output PIXOR observation
   }
+  action_params = {
+    # 'max_speed': 13.89,
+    # 'max_accel': 2.0,
+    # 'max_curvature': 1.0,
+    'max_road_width': 10.0,
+    # 'd_road_w': 1.0,
+    'maxt': 5.0,
+    'mint': 2.0,
+    'd_t_s': 1.389,
+    'n_s_sample': 1.5,
+    # 'min_lat_vel': -1.0, 
+    'max_lat_vel': 1.0,
+    # 'd_d_ns': 0.5,
+    # 'max_shift_d': 3
+  }
+  path_params = {
+    'K_J' : 0.1,
+    'K_T' : 0.1,
+    'K_D' : 1.0,
+    'K_LAT' : 1.0,
+    'K_LON' : 1.0,
+    'DT' : 0.2,
+    'TARGET_SPEED': 30.0 / 3.6
+  }
 
   # Set gym-carla environment
-  env = gym.make('carla-v0', params=params)
-  obs = env.reset()
+  env = gym.make('carla-v0', params=params, action_params = action_params, path_params = path_params)
+  # obs = env.reset()
 
-  while True:
-    action = [2.0, 0.0]
-    obs,r, done, info = env.step(action)
+  # while True:
+    # action = [2.0, 0.0]
+    # obs,r, done, info = env.step(action)
 
-    if done:
-      obs = env.reset()
+    # if done:
+      # obs = env.reset()
 
 
 if __name__ == '__main__':

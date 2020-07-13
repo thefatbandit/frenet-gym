@@ -34,27 +34,6 @@ except ImportError:
 
 SIM_LOOP = 500
 
-# Parameter
-MAX_SPEED = 50.0 / 3.6  # maximum speed [m/s]
-MAX_ACCEL = 2.0  # maximum acceleration [m/ss]
-MAX_CURVATURE = 1.0  # maximum curvature [1/m]
-MAX_ROAD_WIDTH = 7.0  # maximum road width [m]
-D_ROAD_W = 1.0  # road width sampling length [m]
-DT = 0.2  # time tick [s]
-MAX_T = 5.0  # max prediction time [m]
-MIN_T = 4.0  # min prediction time [m]
-TARGET_SPEED = 30.0 / 3.6  # target speed [m/s]
-D_T_S = 5.0 / 3.6  # target speed sampling length [m/s]
-N_S_SAMPLE = 1  # sampling number of target speed
-ROBOT_RADIUS = 2.0  # robot radius [m]
-
-# cost weights
-K_J = 0.1
-K_T = 0.1
-K_D = 1.0
-K_LAT = 1.0
-K_LON = 1.0
-
 show_animation = True
 
 
@@ -122,7 +101,18 @@ class FrenetPath:
         self.c = []
 
 # void FrenetPath::calc_lat_paths(double c_speed, double c_d, double c_d_d, double c_d_dd, double s0, double Ti, double di, double di_d)
-def calc_frenet_paths(c_speed, c_d, c_d_d, c_d_dd, s0, Ti, di, di_d, tv):
+def calc_frenet_paths(c_speed, c_d, c_d_d, c_d_dd, s0, Ti, di, di_d, tv, path_params):
+    # # Parameter
+    DT = path_params['DT']  # time tick [s]
+    TARGET_SPEED = path_params['TARGET_SPEED']
+
+    # cost weights
+    K_J = path_params['K_J']
+    K_T = path_params['K_T']
+    K_D = path_params['K_D']
+    K_LAT = path_params['K_LAT']
+    K_LON = path_params['K_LON']
+
     # Four parameters are sampled Ti, di, di_d, tv
     fp = FrenetPath()
 
@@ -216,9 +206,9 @@ def check_paths(fplist, ob):
     return [fplist[i] for i in ok_ind]
 
 
-def frenet_optimal_planning(csp, s0, c_speed, c_d, c_d_d, c_d_dd, Ti, di, di_d, tv):
+def frenet_optimal_planning(csp, s0, c_speed, c_d, c_d_d, c_d_dd, Ti, di, di_d, tv, path_params):
     #Initial conditions from step of env get csp(from reset), s0, c_speed,...
-    path = calc_frenet_paths(c_speed, c_d, c_d_d, c_d_dd, s0, Ti, di, di_d, tv)
+    path = calc_frenet_paths(c_speed, c_d, c_d_d, c_d_dd, s0, Ti, di, di_d, tv, path_params)
     path = calc_global_paths(path, csp)
 
     return path

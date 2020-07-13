@@ -27,13 +27,12 @@ from gym_carla.envs.misc import *
 class CarlaEnv(gym.Env):
   """An OpenAI gym wrapper for CARLA simulator."""
 
-  def __init__(self, params):
+  def __init__(self, params, aciton_params, path_params):
     # parameters
     self.display_size = params['display_size']  # rendering screen size
     self.max_past_step = params['max_past_step']
     self.number_of_vehicles = params['number_of_vehicles']
     self.number_of_walkers = params['number_of_walkers']
-    self.dt = params['dt'] # time interval between 2 frames
     self.task_mode = params['task_mode']
     self.max_time_episode = params['max_time_episode']
     self.max_waypt = params['max_waypt']
@@ -45,6 +44,18 @@ class CarlaEnv(gym.Env):
     self.desired_speed = params['desired_speed']
     self.max_ego_spawn_times = params['max_ego_spawn_times']
     self.display_route = params['display_route']
+    self.path_params = path_params
+
+    D_T_S = aciton_params['d_t_S']
+    N_S_SAMPLE = aciton_params['n_s_sample']
+    MINT = aciton_params['mint']
+    MAXT = aciton_params['maxt']
+    MAX_ROAD_WIDTH = aciton_params['max_road_width']
+    MAX_LAT_VEL = aciton_params['max_lat_vel']
+    TARGET_SPEED = path_params['TARGET_SPEED']
+
+    self.dt = path_params['DT'] # time interval between 2 frames
+
     if 'pixor' in params.keys():
       self.pixor = params['pixor']
       self.pixor_size = params['pixor_size']
@@ -65,10 +76,10 @@ class CarlaEnv(gym.Env):
     if self.discrete:
       self.action_space = spaces.Discrete(self.n_acc*self.n_steer)
     else:
-      self.action_space = spaces.Box(np.array([params['continuous_accel_range'][0], 
-      params['continuous_steer_range'][0]]), np.array([params['continuous_accel_range'][1],
-      params['continuous_steer_range'][1]]), dtype=np.float32)  # acc, steer
-    
+      self.action_space = spaces.Box(low=np.array([TARGET_SPEED - D_T_S*N_S_SAMPLE, MINT, -MAX_ROAD_WIDTH, -MAX_LAT_VEL]), 
+                                    high=np.array([TARGET_SPEED + D_T_S*N_S_SAMPLE, MAXT, MAX_ROAD_WIDTH, MAX_LAT_VEL]), 
+                                    dtype = np.float32)
+
     observation_space_dict = {
       'camera': spaces.Box(low=0, high=255, shape=(self.obs_size, self.obs_size, 3), dtype=np.uint8),
       'lidar': spaces.Box(low=0, high=255, shape=(self.obs_size, self.obs_size, 3), dtype=np.uint8),
@@ -114,7 +125,7 @@ class CarlaEnv(gym.Env):
 
     # Lidar sensor
     self.lidar_data = None
-    self.lidar_height = 2.1
+    self.lidar_height = 2.1 #Note : HEIGHT OF LIDAR
     self.lidar_trans = carla.Transform(carla.Location(x=0.0, z=self.lidar_height))
     self.lidar_bp = self.world.get_blueprint_library().find('sensor.lidar.ray_cast')
     self.lidar_bp.set_attribute('channels', '32')
