@@ -68,6 +68,7 @@ class CarlaEnv(gym.Env):
       self.action_space = spaces.Box(np.array([params['continuous_accel_range'][0], 
       params['continuous_steer_range'][0]]), np.array([params['continuous_accel_range'][1],
       params['continuous_steer_range'][1]]), dtype=np.float32)  # acc, steer
+    
     observation_space_dict = {
       'camera': spaces.Box(low=0, high=255, shape=(self.obs_size, self.obs_size, 3), dtype=np.uint8),
       'lidar': spaces.Box(low=0, high=255, shape=(self.obs_size, self.obs_size, 3), dtype=np.uint8),

@@ -121,82 +121,67 @@ class FrenetPath:
         self.ds = []
         self.c = []
 
+# void FrenetPath::calc_lat_paths(double c_speed, double c_d, double c_d_d, double c_d_dd, double s0, double Ti, double di, double di_d)
+def calc_frenet_paths(c_speed, c_d, c_d_d, c_d_dd, s0, Ti, di, di_d, tv):
+    # Four parameters are sampled Ti, di, di_d, tv
+    fp = FrenetPath()
 
-def calc_frenet_paths(c_speed, c_d, c_d_d, c_d_dd, s0):
-    frenet_paths = []
+    # lat_qp = quintic_polynomial(c_d, c_d_d, c_d_dd, di, 0.0, 0.0, Ti)
+    lat_qp = QuinticPolynomial(c_d, c_d_d, c_d_dd, di, di_d, 0.0, Ti)
 
-    # generate path to each offset goal
-    for di in np.arange(-MAX_ROAD_WIDTH, MAX_ROAD_WIDTH, D_ROAD_W):
+    fp.t = [t for t in np.arange(0.0, Ti, DT)]
+    fp.d = [lat_qp.calc_point(t) for t in fp.t]
+    fp.d_d = [lat_qp.calc_first_derivative(t) for t in fp.t]
+    fp.d_dd = [lat_qp.calc_second_derivative(t) for t in fp.t]
+    fp.d_ddd = [lat_qp.calc_third_derivative(t) for t in fp.t]
 
-        # Lateral motion planning
-        for Ti in np.arange(MIN_T, MAX_T, DT):
-            fp = FrenetPath()
+    # Longitudinal motion planning (Velocity keeping)
+    lon_qp = QuarticPolynomial(s0, c_speed, 0.0, tv, 0.0, Ti)
 
-            # lat_qp = quintic_polynomial(c_d, c_d_d, c_d_dd, di, 0.0, 0.0, Ti)
-            lat_qp = QuinticPolynomial(c_d, c_d_d, c_d_dd, di, 0.0, 0.0, Ti)
+    fp.s = [lon_qp.calc_point(t) for t in fp.t]
+    fp.s_d = [lon_qp.calc_first_derivative(t) for t in fp.t]
+    fp.s_dd = [lon_qp.calc_second_derivative(t) for t in fp.t]
+    fp.s_ddd = [lon_qp.calc_third_derivative(t) for t in fp.t]
 
-            fp.t = [t for t in np.arange(0.0, Ti, DT)]
-            fp.d = [lat_qp.calc_point(t) for t in fp.t]
-            fp.d_d = [lat_qp.calc_first_derivative(t) for t in fp.t]
-            fp.d_dd = [lat_qp.calc_second_derivative(t) for t in fp.t]
-            fp.d_ddd = [lat_qp.calc_third_derivative(t) for t in fp.t]
+    Jp = sum(np.power(fp.d_ddd, 2))  # square of jerk
+    Js = sum(np.power(fp.s_ddd, 2))  # square of jerk
 
-            # Longitudinal motion planning (Velocity keeping)
-            for tv in np.arange(TARGET_SPEED - D_T_S * N_S_SAMPLE,
-                                TARGET_SPEED + D_T_S * N_S_SAMPLE, D_T_S):
-                tfp = copy.deepcopy(fp)
-                lon_qp = QuarticPolynomial(s0, c_speed, 0.0, tv, 0.0, Ti)
-
-                tfp.s = [lon_qp.calc_point(t) for t in fp.t]
-                tfp.s_d = [lon_qp.calc_first_derivative(t) for t in fp.t]
-                tfp.s_dd = [lon_qp.calc_second_derivative(t) for t in fp.t]
-                tfp.s_ddd = [lon_qp.calc_third_derivative(t) for t in fp.t]
-
-                Jp = sum(np.power(tfp.d_ddd, 2))  # square of jerk
-                Js = sum(np.power(tfp.s_ddd, 2))  # square of jerk
-
-                # square of diff from target speed
-                ds = (TARGET_SPEED - tfp.s_d[-1]) ** 2
-
-                tfp.cd = K_J * Jp + K_T * Ti + K_D * tfp.d[-1] ** 2
-                tfp.cv = K_J * Js + K_T * Ti + K_D * ds
-                tfp.cf = K_LAT * tfp.cd + K_LON * tfp.cv
-
-                frenet_paths.append(tfp)
-
-    return frenet_paths
+    # square of diff from target speed
+    ds = (TARGET_SPEED - fp.s_d[-1]) ** 2
+    fp.cd = K_J * Jp + K_T * Ti + K_D * fp.d[-1] ** 2
+    fp.cv = K_J * Js + K_T * Ti + K_D * ds
+    fp.cf = K_LAT * fp.cd + K_LON * fp.cv
+    return fp
 
 
-def calc_global_paths(fplist, csp):
-    for fp in fplist:
+def calc_global_paths(fp, csp):
+    # calc global positions
+    for i in range(len(fp.s)):
+        ix, iy = csp.calc_position(fp.s[i])
+        if ix is None:
+            break
+        i_yaw = csp.calc_yaw(fp.s[i])
+        di = fp.d[i]
+        fx = ix + di * math.cos(i_yaw + math.pi / 2.0)
+        fy = iy + di * math.sin(i_yaw + math.pi / 2.0)
+        fp.x.append(fx)
+        fp.y.append(fy)
 
-        # calc global positions
-        for i in range(len(fp.s)):
-            ix, iy = csp.calc_position(fp.s[i])
-            if ix is None:
-                break
-            i_yaw = csp.calc_yaw(fp.s[i])
-            di = fp.d[i]
-            fx = ix + di * math.cos(i_yaw + math.pi / 2.0)
-            fy = iy + di * math.sin(i_yaw + math.pi / 2.0)
-            fp.x.append(fx)
-            fp.y.append(fy)
+    # calc yaw and ds
+    for i in range(len(fp.x) - 1):
+        dx = fp.x[i + 1] - fp.x[i]
+        dy = fp.y[i + 1] - fp.y[i]
+        fp.yaw.append(math.atan2(dy, dx))
+        fp.ds.append(math.hypot(dx, dy))
 
-        # calc yaw and ds
-        for i in range(len(fp.x) - 1):
-            dx = fp.x[i + 1] - fp.x[i]
-            dy = fp.y[i + 1] - fp.y[i]
-            fp.yaw.append(math.atan2(dy, dx))
-            fp.ds.append(math.hypot(dx, dy))
+    fp.yaw.append(fp.yaw[-1])
+    fp.ds.append(fp.ds[-1])
 
-        fp.yaw.append(fp.yaw[-1])
-        fp.ds.append(fp.ds[-1])
+    # calc curvature
+    for i in range(len(fp.yaw) - 1):
+        fp.c.append((fp.yaw[i + 1] - fp.yaw[i]) / fp.ds[i])
 
-        # calc curvature
-        for i in range(len(fp.yaw) - 1):
-            fp.c.append((fp.yaw[i + 1] - fp.yaw[i]) / fp.ds[i])
-
-    return fplist
+    return fp
 
 
 def check_collision(fp, ob):
@@ -231,20 +216,12 @@ def check_paths(fplist, ob):
     return [fplist[i] for i in ok_ind]
 
 
-def frenet_optimal_planning(csp, s0, c_speed, c_d, c_d_d, c_d_dd, ob):
-    fplist = calc_frenet_paths(c_speed, c_d, c_d_d, c_d_dd, s0)
-    fplist = calc_global_paths(fplist, csp)
-    fplist = check_paths(fplist, ob)
+def frenet_optimal_planning(csp, s0, c_speed, c_d, c_d_d, c_d_dd, Ti, di, di_d, tv):
+    #Initial conditions from step of env get csp(from reset), s0, c_speed,...
+    path = calc_frenet_paths(c_speed, c_d, c_d_d, c_d_dd, s0, Ti, di, di_d, tv)
+    path = calc_global_paths(path, csp)
 
-    # find minimum cost path
-    min_cost = float("inf")
-    best_path = None
-    for fp in fplist:
-        if min_cost >= fp.cf:
-            min_cost = fp.cf
-            best_path = fp
-
-    return best_path
+    return path
 
 
 def generate_target_course(x, y):
@@ -290,7 +267,6 @@ def main():
     for i in range(SIM_LOOP):
         path = frenet_optimal_planning(
             csp, s0, c_speed, c_d, c_d_d, c_d_dd, ob)
-
         s0 = path.s[1]
         c_d = path.d[1]
         c_d_d = path.d_d[1]
