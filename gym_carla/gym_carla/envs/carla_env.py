@@ -65,10 +65,14 @@ class CarlaEnv(gym.Env):
     if self.discrete:
       self.action_space = spaces.Discrete(self.n_acc*self.n_steer)
     else:
+    # ======================================================================
+    # TO-DO  
+		#   self.action_space = spaces.Box(low=np.array([TARGET_SPEED - D_T_S*N_S_SAMPLE, MINT, -MAX_ROAD_WIDTH, -MAX_LAT_VEL]), high=np.array([TARGET_SPEED + D_T_S*N_S_SAMPLE, MAXT, MAX_ROAD_WIDTH, MAX_LAT_VEL]), dtype = np.float32)
+    # ======================================================================
+
       self.action_space = spaces.Box(np.array([params['continuous_accel_range'][0], 
       params['continuous_steer_range'][0]]), np.array([params['continuous_accel_range'][1],
       params['continuous_steer_range'][1]]), dtype=np.float32)  # acc, steer
-    
     observation_space_dict = {
       'camera': spaces.Box(low=0, high=255, shape=(self.obs_size, self.obs_size, 3), dtype=np.uint8),
       'lidar': spaces.Box(low=0, high=255, shape=(self.obs_size, self.obs_size, 3), dtype=np.uint8),
@@ -149,6 +153,12 @@ class CarlaEnv(gym.Env):
       self.pixel_grid = np.vstack((x, y)).T
 
   def reset(self):
+    # ======================================================================
+    # TO-DO
+    #   * Waypoint Generation
+    #   * Spline to be generated from waypoints
+    # ======================================================================
+
     # Clear sensor objects  
     self.collision_sensor = None
     self.lidar_sensor = None
@@ -256,6 +266,12 @@ class CarlaEnv(gym.Env):
     return self._get_obs()
   
   def step(self, action):
+    # ======================================================================
+    # TO-DO
+    #   * Creating Frenet Path from the action space
+    #   * Making  
+    # ======================================================================
+
     # Calculate acceleration and steering
     if self.discrete:
       acc = self.discrete_act[0][action//self.n_steer]
