@@ -27,8 +27,11 @@ from gym_carla.envs.misc import *
 class CarlaEnv(gym.Env):
   """An OpenAI gym wrapper for CARLA simulator."""
 
-  def __init__(self, params, aciton_params, path_params):
+  def __init__(self, params):
     # parameters
+    action_params = params['action_params']
+    self.path_params = params['path_params']
+
     self.display_size = params['display_size']  # rendering screen size
     self.max_past_step = params['max_past_step']
     self.number_of_vehicles = params['number_of_vehicles']
@@ -44,17 +47,16 @@ class CarlaEnv(gym.Env):
     self.desired_speed = params['desired_speed']
     self.max_ego_spawn_times = params['max_ego_spawn_times']
     self.display_route = params['display_route']
-    self.path_params = path_params
 
-    D_T_S = aciton_params['d_t_S']
-    N_S_SAMPLE = aciton_params['n_s_sample']
-    MINT = aciton_params['mint']
-    MAXT = aciton_params['maxt']
-    MAX_ROAD_WIDTH = aciton_params['max_road_width']
-    MAX_LAT_VEL = aciton_params['max_lat_vel']
-    TARGET_SPEED = path_params['TARGET_SPEED']
+    D_T_S = action_params['d_t_s']
+    N_S_SAMPLE = action_params['n_s_sample']
+    MINT = action_params['mint']
+    MAXT = action_params['maxt']
+    MAX_ROAD_WIDTH = action_params['max_road_width']
+    MAX_LAT_VEL = action_params['max_lat_vel']
+    TARGET_SPEED = self.path_params['TARGET_SPEED']
 
-    self.dt = path_params['DT'] # time interval between 2 frames
+    self.dt = self.path_params['DT'] # time interval between 2 frames
 
     if 'pixor' in params.keys():
       self.pixor = params['pixor']

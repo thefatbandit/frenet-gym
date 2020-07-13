@@ -24,7 +24,7 @@ def main():
     'continuous_steer_range': [-0.3, 0.3],  # continuous steering angle range
     'ego_vehicle_filter': 'vehicle.lincoln*',  # filter for defining ego vehicle
     'port': 2000,  # connection port
-    'town': 'Town03',  # which town to simulate
+    'town': 'Town02',  # which town to simulate
     'task_mode': 'random',  # mode of the task, [random, roundabout (only for Town03)]
     'max_time_episode': 1000,  # maximum timesteps per episode
     'max_waypt': 12,  # maximum number of waypoints
@@ -36,43 +36,47 @@ def main():
     'max_ego_spawn_times': 200,  # maximum times to spawn ego vehicle
     'display_route': True,  # whether to render the desired route
     'pixor_size': 64,  # size of the pixor labels
-    'pixor': False,  # whether to output PIXOR observation
+    'pixor': False,  # whether to output PIXOR observation,
+    'action_params' : {
+      # 'max_speed': 13.89,
+      # 'max_accel': 2.0,
+      # 'max_curvature': 1.0,
+      'max_road_width': 10.0,
+      # 'd_road_w': 1.0,
+      'maxt': 5.0,
+      'mint': 2.0,
+      'd_t_s': 1.389,
+      'n_s_sample': 1.5,
+      # 'min_lat_vel': -1.0, 
+      'max_lat_vel': 1.0,
+      # 'd_d_ns': 0.5,
+      # 'max_shift_d': 3 
+    },
+
+    'path_params' : {
+      'K_J' : 0.1,
+      'K_T' : 0.1,
+      'K_D' : 1.0,
+      'K_LAT' : 1.0,
+      'K_LON' : 1.0,
+      'DT' : 0.2,
+      'TARGET_SPEED': 30.0 / 3.6
   }
-  action_params = {
-    # 'max_speed': 13.89,
-    # 'max_accel': 2.0,
-    # 'max_curvature': 1.0,
-    'max_road_width': 10.0,
-    # 'd_road_w': 1.0,
-    'maxt': 5.0,
-    'mint': 2.0,
-    'd_t_s': 1.389,
-    'n_s_sample': 1.5,
-    # 'min_lat_vel': -1.0, 
-    'max_lat_vel': 1.0,
-    # 'd_d_ns': 0.5,
-    # 'max_shift_d': 3
   }
-  path_params = {
-    'K_J' : 0.1,
-    'K_T' : 0.1,
-    'K_D' : 1.0,
-    'K_LAT' : 1.0,
-    'K_LON' : 1.0,
-    'DT' : 0.2,
-    'TARGET_SPEED': 30.0 / 3.6
-  }
+  
+  
 
   # Set gym-carla environment
-  env = gym.make('carla-v0', params=params, action_params = action_params, path_params = path_params)
-  # obs = env.reset()
+  env = gym.make('carla-v0', params=params)
+  
+  obs = env.reset()
 
   # while True:
-    # action = [2.0, 0.0]
-    # obs,r, done, info = env.step(action)
+  #   action = [2.0, 0.0]
+  #   obs,r, done, info = env.step(action)
 
-    # if done:
-      # obs = env.reset()
+  #   if done:
+  #     obs = env.reset()
 
 
 if __name__ == '__main__':

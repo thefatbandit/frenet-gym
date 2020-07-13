@@ -1,3 +1,5 @@
-carla_env.py
-    Line 68
+Observations:
+    * LIDAR (Pointcloud)
+    * Frenet Path
+    * Odometry Data
     
