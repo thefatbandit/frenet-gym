@@ -13,6 +13,8 @@ import pygame
 import random
 import time
 from skimage.transform import resize
+import sys
+import os
 
 import gym
 from gym import spaces
@@ -23,6 +25,13 @@ from gym_carla.envs.render import BirdeyeRender
 from gym_carla.envs.route_planner import RoutePlanner
 from gym_carla.envs.misc import *
 
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) +
+                "/../../../python_robotics/FrenetOptimalTrajectory/")
+
+try:
+    import frenet_optimal_trajectory
+except ImportError:
+    raise   
 
 class CarlaEnv(gym.Env):
   """An OpenAI gym wrapper for CARLA simulator."""
@@ -219,6 +228,9 @@ class CarlaEnv(gym.Env):
         self.start=[52.1+np.random.uniform(-5,5),-4.2, 178.66] # random
         # self.start=[52.1,-4.2, 178.66] # static
         transform = set_carla_transform(self.start)
+      if self.task_mode == 'debug':
+        self.start=[88.71, -237, 4] # static
+        transform = set_carla_transform(self.start)
       if self._try_spawn_ego_vehicle_at(transform):
         break
       else:
@@ -260,10 +272,16 @@ class CarlaEnv(gym.Env):
     self.settings.synchronous_mode = True
     self.world.apply_settings(self.settings)
 
+    # ===================================================================================
     self.routeplanner = RoutePlanner(self.ego, self.max_waypt)
     self.waypoints, _, self.vehicle_front = self.routeplanner.run_step()
-
+    # ===================================================================================
     # Set ego information for render
+    W_X_0 = [88.7100448608, 79, 68, 59, 56, 47]
+    W_Y_0 = [-237.4, -237.4, -237.4, -237.4, -237.4, -237.4]
+    tx, ty, tyaw, tc, csp = frenet_optimal_trajectory.generate_target_course(W_X_0, W_Y_0)
+    print(csp.s)
+
     self.birdeye_render.set_hero(self.ego, self.ego.id)
 
     return self._get_obs()
