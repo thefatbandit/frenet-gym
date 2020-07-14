@@ -27,4 +27,8 @@ path_params = {
 
 area = 20.0  # animation area length [m]
 path = frenet_optimal_trajectory.frenet_optimal_planning(csp, s0, c_speed, c_d, c_d_d, c_d_dd, 4.0, -7, 0, 6.94, path_params)
-print(path.d)
+print("X")
+print(path.x)
+
+print("Y")
+print(path.y)

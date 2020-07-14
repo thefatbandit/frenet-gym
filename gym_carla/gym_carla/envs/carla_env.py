@@ -61,8 +61,8 @@ class CarlaEnv(gym.Env):
     self.max_ego_spawn_times = params['max_ego_spawn_times']
     self.display_route = params['display_route']
     control_params = params['control_params']
-    args_lateral_dict = control_params['args_lateral_dict']  
-    args_longitudinal_dict = control_params['args_longitudinal_dict']  
+    self.args_lateral_dict = control_params['args_lateral_dict']  
+    self.args_longitudinal_dict = control_params['args_longitudinal_dict']  
     
     D_T_S = action_params['d_t_s']
     N_S_SAMPLE = action_params['n_s_sample']
@@ -246,8 +246,8 @@ class CarlaEnv(gym.Env):
 
     # Initializing Controller (Requires ego vehicle spawn)
     self._vehicle_controller = VehiclePIDController(self.ego,
-                                                    args_lateral=args_lateral_dict,
-                                                    args_longitudinal=args_longitudinal_dict)
+                                                    args_lateral=self.args_lateral_dict,
+                                                    args_longitudinal=self.args_longitudinal_dict)
 
     # Add collision sensor
     self.collision_sensor = self.world.spawn_actor(self.collision_bp, carla.Transform(), attach_to=self.ego)
@@ -288,13 +288,10 @@ class CarlaEnv(gym.Env):
     self.routeplanner = RoutePlanner(self.ego, self.max_waypt)
     self.waypoints, _, self.vehicle_front = self.routeplanner.run_step()
     # ===================================================================================
-    # Set ego information for render
-    # W_X_0 = [88.7100448608, 79, 68, 59, 56, 47]
-    # W_Y_0 = [-237.4, -237.4, -237.4, -237.4, -237.4, -237.4]
+    
     W_X_0 = [t[0] for t in self.waypoints]
     W_Y_0 = [t[1] for t in self.waypoints]
     self.tx, self.ty, self.tyaw, self.tc, self.csp = frenet_optimal_trajectory.generate_target_course(W_X_0, W_Y_0)
-    print(csp.s)
 
     self.birdeye_render.set_hero(self.ego, self.ego.id)
 
@@ -302,21 +299,23 @@ class CarlaEnv(gym.Env):
   
   def step(self, action):
     # Get target speed, target_waypoint 
-    
+    ego_trans = self.ego.get_transform()
+    ego_z = ego_trans.location.z
     # act = carla.VehicleControl(throttle=float(throttle), steer=float(-steer), brake=float(brake))
     Ti = action[1]
     di = action[2]
     di_d = action[3]
     tv = action[0]
     # Initial Conditions
-    s0, c_speed, c_d, c_d_d, c_d_dd = self.initial_conditions(self.csp, self.tx, self.ty, self.tyaw)
+    s0, c_speed, c_d, c_d_d, c_d_dd = self.initial_conditions()
    
     # Generate Frenet Path
-    path = frenet_optimal_trajectory.frenet_optimal_planning(self.csp, s0, c_speed, c_d, c_d_d, c_d_dd, Ti, di, di_d, tv, path_params)
-    # ==============================================
-    print(path.d)
-    TODO
-    # ==============================================
+    path = frenet_optimal_trajectory.frenet_optimal_planning(self.csp, s0, c_speed, c_d, c_d_d, c_d_dd, Ti, di, di_d, tv, self.path_params)
+
+    
+    self.target_waypoint = [path.x[1], path.y[1], ego_z]
+    # sqrt(pow(1 - rk[1]*c_d, 2)*pow(c_speed, 2) + pow(c_d_d, 2)) 
+    self._target_speed = ((((1 - self.tc[1])**2)*((path.s_d[1])**2) + ((path.d_d[1])**2) )**0.5)* 3.6 # To be given in Km/h
     # Apply control
     control = self._vehicle_controller.run_step(self._target_speed, self.target_waypoint)
     self.ego.apply_control(control)
@@ -363,7 +362,7 @@ class CarlaEnv(gym.Env):
     if (curl < 0) :
       c_d = c_d * (-1)
     
-    s0 = calc_s(min_id)
+    s0 = self.calc_s(min_id)
     ego_yaw = ego_trans.rotation.yaw/180*np.pi
     global_path_yaw = self.tyaw[min_id]
     delta_theta = ego_yaw - global_path_yaw

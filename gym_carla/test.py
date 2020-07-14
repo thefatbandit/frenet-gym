@@ -25,7 +25,7 @@ def main():
     'ego_vehicle_filter': 'vehicle.lincoln*',  # filter for defining ego vehicle
     'port': 2000,  # connection port
     'town': 'Town02',  # which town to simulate
-    'task_mode': 'debug',  # mode of the task, [random, roundabout (only for Town03), debug (for fixed starting point)]
+    'task_mode': 'random',  # mode of the task, [random, roundabout (only for Town03), debug (for fixed starting point)]
     'max_time_episode': 1000,  # maximum timesteps per episode
     'max_waypt': 12,  # maximum number of waypoints
     'obs_range': 32,  # observation range (meter)
@@ -82,8 +82,9 @@ def main():
 
   # Set gym-carla environment
   env = gym.make('carla-v0', params=params)
-  
+  print("1st Reset Start")
   obs = env.reset()
+  print("1st Reset End")
 
   for i in range (5):
     obs,r, done, info = env.step(env.action_space.sample())
