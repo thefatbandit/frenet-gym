@@ -61,7 +61,21 @@ def main():
       'K_LON' : 1.0,
       'DT' : 0.2,
       'TARGET_SPEED': 30.0 / 3.6
-  }
+    },
+
+
+    'control_params' : {
+      'args_lateral_dict' : {
+            'K_P': 1.95,
+            'K_D': 0.01,
+            'K_I': 1.4,
+            'dt': self._dt},
+      'args_longitudinal_dict' : {
+            'K_P': 1.0,
+            'K_D': 0,
+            'K_I': 1,
+            'dt': self._dt}
+    }
   }
   
   

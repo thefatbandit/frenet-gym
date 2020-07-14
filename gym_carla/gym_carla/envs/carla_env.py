@@ -56,6 +56,13 @@ class CarlaEnv(gym.Env):
     self.desired_speed = params['desired_speed']
     self.max_ego_spawn_times = params['max_ego_spawn_times']
     self.display_route = params['display_route']
+    control_params = self.params['control_params']
+    args_lateral_dict = control_params['args_lateral_dict']  
+    args_longitudinal_dict = control_params['args_longitudinal_dict']  
+    self._vehicle_controller = VehiclePIDController(self.ego,
+                                                    args_lateral=args_lateral_dict,
+                                                    args_longitudinal=args_longitudinal_dict)
+
 
     D_T_S = action_params['d_t_s']
     N_S_SAMPLE = action_params['n_s_sample']
@@ -289,25 +296,13 @@ class CarlaEnv(gym.Env):
     return self._get_obs()
   
   def step(self, action):
-    # Calculate acceleration and steering
-    if self.discrete:
-      acc = self.discrete_act[0][action//self.n_steer]
-      steer = self.discrete_act[1][action%self.n_steer]
-    else:
-      acc = action[0]
-      steer = action[1]
-
-    # Convert acceleration to throttle and brake
-    if acc > 0:
-      throttle = np.clip(acc/3,0,1)
-      brake = 0
-    else:
-      throttle = 0
-      brake = np.clip(-acc/8,0,1)
-
+    # Initial Conditions
+    # Generate Frenet Path
+    # Get target speed, target_waypoint 
     # Apply control
-    act = carla.VehicleControl(throttle=float(throttle), steer=float(-steer), brake=float(brake))
-    self.ego.apply_control(act)
+    # act = carla.VehicleControl(throttle=float(throttle), steer=float(-steer), brake=float(brake))
+    control = self._vehicle_controller.run_step(self._target_speed, self.target_waypoint)
+    self.ego.apply_control(control)
 
     self.world.tick()
 
