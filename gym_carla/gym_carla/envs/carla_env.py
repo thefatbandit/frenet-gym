@@ -15,6 +15,7 @@ import time
 from skimage.transform import resize
 import sys
 import os
+import math
 
 import gym
 from gym import spaces
@@ -25,8 +26,11 @@ from gym_carla.envs.render import BirdeyeRender
 from gym_carla.envs.route_planner import RoutePlanner
 from gym_carla.envs.misc import *
 
+from gym_carla.envs.controller import VehiclePIDController
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) +
                 "/../../../python_robotics/FrenetOptimalTrajectory/")
+
 
 try:
     import frenet_optimal_trajectory
@@ -56,14 +60,10 @@ class CarlaEnv(gym.Env):
     self.desired_speed = params['desired_speed']
     self.max_ego_spawn_times = params['max_ego_spawn_times']
     self.display_route = params['display_route']
-    control_params = self.params['control_params']
+    control_params = params['control_params']
     args_lateral_dict = control_params['args_lateral_dict']  
     args_longitudinal_dict = control_params['args_longitudinal_dict']  
-    self._vehicle_controller = VehiclePIDController(self.ego,
-                                                    args_lateral=args_lateral_dict,
-                                                    args_longitudinal=args_longitudinal_dict)
-
-
+    
     D_T_S = action_params['d_t_s']
     N_S_SAMPLE = action_params['n_s_sample']
     MINT = action_params['mint']
@@ -244,6 +244,11 @@ class CarlaEnv(gym.Env):
         ego_spawn_times += 1
         time.sleep(0.1)
 
+    # Initializing Controller (Requires ego vehicle spawn)
+    self._vehicle_controller = VehiclePIDController(self.ego,
+                                                    args_lateral=args_lateral_dict,
+                                                    args_longitudinal=args_longitudinal_dict)
+
     # Add collision sensor
     self.collision_sensor = self.world.spawn_actor(self.collision_bp, carla.Transform(), attach_to=self.ego)
     self.collision_sensor.listen(lambda event: get_collision_hist(event))
@@ -288,7 +293,7 @@ class CarlaEnv(gym.Env):
     # W_Y_0 = [-237.4, -237.4, -237.4, -237.4, -237.4, -237.4]
     W_X_0 = [t[0] for t in self.waypoints]
     W_Y_0 = [t[1] for t in self.waypoints]
-    tx, ty, tyaw, tc, csp = frenet_optimal_trajectory.generate_target_course(W_X_0, W_Y_0)
+    self.tx, self.ty, self.tyaw, self.tc, self.csp = frenet_optimal_trajectory.generate_target_course(W_X_0, W_Y_0)
     print(csp.s)
 
     self.birdeye_render.set_hero(self.ego, self.ego.id)
@@ -296,11 +301,23 @@ class CarlaEnv(gym.Env):
     return self._get_obs()
   
   def step(self, action):
-    # Initial Conditions
-    # Generate Frenet Path
     # Get target speed, target_waypoint 
-    # Apply control
+    
     # act = carla.VehicleControl(throttle=float(throttle), steer=float(-steer), brake=float(brake))
+    Ti = action[1]
+    di = action[2]
+    di_d = action[3]
+    tv = action[0]
+    # Initial Conditions
+    s0, c_speed, c_d, c_d_d, c_d_dd = self.initial_conditions(self.csp, self.tx, self.ty, self.tyaw)
+   
+    # Generate Frenet Path
+    path = frenet_optimal_trajectory.frenet_optimal_planning(self.csp, s0, c_speed, c_d, c_d_d, c_d_dd, Ti, di, di_d, tv, path_params)
+    # ==============================================
+    print(path.d)
+    TODO
+    # ==============================================
+    # Apply control
     control = self._vehicle_controller.run_step(self._target_speed, self.target_waypoint)
     self.ego.apply_control(control)
 
@@ -330,6 +347,55 @@ class CarlaEnv(gym.Env):
     self.total_step += 1
 
     return (self._get_obs(), self._get_reward(), self._terminal(), copy.deepcopy(info))
+
+  def initial_conditions(self):
+    vel= self.ego.get_velocity()
+    ego_trans = self.ego.get_transform()
+    ego_x , ego_y = get_pos(self.ego)
+
+    v = ((vel.x**2) +(vel.y**2))**0.5
+    min_id, c_d = self.find_nearest_in_global_path()
+
+
+    vec1 = [ego_x - self.tx[min_id], ego_y - self.ty[min_id]]
+    vec2 = [self.tx[min_id] - self.tx[min_id + 1], self.tx[min_id] - self.ty[min_id + 1]]
+    curl = vec1[0] * vec2[1] - vec1[1]*vec2[0]
+    if (curl < 0) :
+      c_d = c_d * (-1)
+    
+    s0 = calc_s(min_id)
+    ego_yaw = ego_trans.rotation.yaw/180*np.pi
+    global_path_yaw = self.tyaw[min_id]
+    delta_theta = ego_yaw - global_path_yaw
+    c_d_d = v*math.sin(delta_theta)
+    k_r = self.tc[min_id]
+    c_speed = v*math.cos(delta_theta) / (1 - k_r*c_d)
+    c_d_dd = 0
+    
+    return s0, c_speed, c_d, c_d_d, c_d_dd
+
+  def find_nearest_in_global_path(self):
+    ego_x , ego_y = get_pos(self.ego)
+    tx = np.asarray(self.tx, dtype=np.float32)
+    ty = np.asarray(self.ty, dtype=np.float32)
+    temp = (tx - ego_x)**2 + (ty - ego_y)**2
+    temp = np.sqrt(temp)
+    min_id = np.argmin(temp)
+    min_dist = np.min(temp)
+    return min_id, min_dist
+
+  def calc_s(self, min_id):
+    tx = np.asarray(self.tx, dtype=np.float32)
+    ty = np.asarray(self.ty, dtype=np.float32)
+    to_stop = min_id + 1
+    tx_cut = tx[:to_stop]
+    ty_cut = ty[:to_stop]
+    tx_cut_2 = np.hstack((tx_cut[0], tx_cut))
+    ty_cut_2 = np.hstack((ty_cut[0], ty_cut))
+    tx_cut_2 = tx_cut_2[:to_stop]
+    ty_cut_2 = ty_cut_2[:to_stop]
+    s = np.sum(np.sqrt((tx_cut - tx_cut_2)**2 + (ty_cut - ty_cut_2)**2))
+    return s
 
   def seed(self, seed=None):
     self.np_random, seed = seeding.np_random(seed)

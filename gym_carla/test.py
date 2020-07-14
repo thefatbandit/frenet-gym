@@ -69,12 +69,12 @@ def main():
             'K_P': 1.95,
             'K_D': 0.01,
             'K_I': 1.4,
-            'dt': self._dt},
+            'dt': 0.2}, # SAME AS LINE 62
       'args_longitudinal_dict' : {
             'K_P': 1.0,
             'K_D': 0,
             'K_I': 1,
-            'dt': self._dt}
+            'dt': 0.2}
     }
   }
   
@@ -85,12 +85,11 @@ def main():
   
   obs = env.reset()
 
-  # while True:
-  #   action = [2.0, 0.0]
-  #   obs,r, done, info = env.step(action)
+  for i in range (5):
+    obs,r, done, info = env.step(env.action_space.sample())
 
-  #   if done:
-  #     obs = env.reset()
+    if done:
+      obs = env.reset()
 
 
 if __name__ == '__main__':
