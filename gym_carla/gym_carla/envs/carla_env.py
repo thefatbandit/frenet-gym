@@ -277,8 +277,10 @@ class CarlaEnv(gym.Env):
     self.waypoints, _, self.vehicle_front = self.routeplanner.run_step()
     # ===================================================================================
     # Set ego information for render
-    W_X_0 = [88.7100448608, 79, 68, 59, 56, 47]
-    W_Y_0 = [-237.4, -237.4, -237.4, -237.4, -237.4, -237.4]
+    # W_X_0 = [88.7100448608, 79, 68, 59, 56, 47]
+    # W_Y_0 = [-237.4, -237.4, -237.4, -237.4, -237.4, -237.4]
+    W_X_0 = [t[0] for t in self.waypoints]
+    W_Y_0 = [t[1] for t in self.waypoints]
     tx, ty, tyaw, tc, csp = frenet_optimal_trajectory.generate_target_course(W_X_0, W_Y_0)
     print(csp.s)
 
@@ -534,8 +536,9 @@ class CarlaEnv(gym.Env):
     z_bins = [-self.lidar_height-1, -self.lidar_height+0.25, 1]
     # Get lidar image according to the bins
     lidar, _ = np.histogramdd(point_cloud, bins=(x_bins, y_bins, z_bins))
-    lidar[:,:,0] = np.array(lidar[:,:,0]>0, dtype=np.uint8)
-    lidar[:,:,1] = np.array(lidar[:,:,1]>0, dtype=np.uint8)
+    #Only 2 bins in z-direction. Taking positive values.
+    lidar[:,:,0] = np.array(lidar[:,:,0]>0, dtype=np.uint8) 
+    lidar[:,:,1] = np.array(lidar[:,:,1]>0, dtype=np.uint8) 
     # Add the waypoints to lidar image
     if self.display_route:
       wayptimg = (birdeye[:,:,0] <= 10) * (birdeye[:,:,1] <= 10) * (birdeye[:,:,2] >= 240)
@@ -566,13 +569,14 @@ class CarlaEnv(gym.Env):
     ego_trans = self.ego.get_transform()
     ego_x = ego_trans.location.x
     ego_y = ego_trans.location.y
-    ego_yaw = ego_trans.rotation.yaw/180*np.pi
+    ego_yaw = ego_trans.rotation.yaw/180*np.pi #in Radians
     lateral_dis, w = get_preview_lane_dis(self.waypoints, ego_x, ego_y)
     delta_yaw = np.arcsin(np.cross(w, 
       np.array(np.array([np.cos(ego_yaw), np.sin(ego_yaw)]))))
     v = self.ego.get_velocity()
+    ang_v = self.ego.get_angular_velocity()
     speed = np.sqrt(v.x**2 + v.y**2)
-    state = np.array([lateral_dis, - delta_yaw, speed, self.vehicle_front])
+    state = np.array([lateral_dis, - delta_yaw, speed, ang_v.z, self.vehicle_front])
 
     if self.pixor:
       ## Vehicle classification and regression maps (requires further normalization)
